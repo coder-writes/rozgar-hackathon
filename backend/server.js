@@ -58,6 +58,9 @@ app.use(session({
   cookie: { secure: process.env.NODE_ENV === 'production' }
 }));
 
+// Handle preflight requests explicitly
+app.options('*', cors());
+
 //  API EndPoints
 app.get('/', (req, res) => { 
   res.json({
