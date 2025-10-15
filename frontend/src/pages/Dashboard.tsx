@@ -28,6 +28,7 @@ import {
   Award
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { API_ENDPOINTS } from "@/lib/api";
 
 interface Application {
   id: string;
@@ -42,6 +43,7 @@ interface Application {
 
 interface JobRecommendation {
   id: string;
+  jobId?: string;
   title: string;
   company: string;
   location: string;
@@ -55,6 +57,7 @@ interface JobRecommendation {
 
 interface OngoingCourse {
   id: string;
+  courseId?: string;
   title: string;
   instructor: string;
   progress: number;
@@ -66,144 +69,65 @@ interface OngoingCourse {
   difficulty: 'beginner' | 'intermediate' | 'advanced';
 }
 
-// Mock data - replace with actual API calls
-const mockApplications: Application[] = [
-  {
-    id: "1",
-    jobTitle: "Frontend Developer",
-    company: "Tech Solutions Ltd",
-    appliedDate: "2024-01-10",
-    status: "interview",
-    location: "Mumbai",
-    salary: "₹8-12 LPA",
-    type: "full-time"
-  },
-  {
-    id: "2",
-    jobTitle: "React Developer",
-    company: "StartupXYZ",
-    appliedDate: "2024-01-08",
-    status: "reviewing",
-    location: "Remote",
-    salary: "₹6-10 LPA",
-    type: "full-time"
-  },
-  {
-    id: "3",
-    jobTitle: "UI/UX Designer",
-    company: "Design Studio",
-    appliedDate: "2024-01-05",
-    status: "rejected",
-    location: "Bangalore",
-    salary: "₹5-8 LPA",
-    type: "full-time"
-  },
-  {
-    id: "4",
-    jobTitle: "Full Stack Intern",
-    company: "Innovation Labs",
-    appliedDate: "2024-01-12",
-    status: "applied",
-    location: "Delhi",
-    salary: "₹15k/month",
-    type: "internship"
-  }
-];
-
-const mockRecommendations: JobRecommendation[] = [
-  {
-    id: "1",
-    title: "Senior React Developer",
-    company: "TechCorp India",
-    location: "Mumbai/Remote",
-    salary: "₹12-18 LPA",
-    type: "full-time",
-    matchScore: 95,
-    postedDate: "2024-01-14",
-    description: "Looking for an experienced React developer with 3+ years of experience...",
-    skills: ["React", "TypeScript", "Node.js", "MongoDB"]
-  },
-  {
-    id: "2",
-    title: "Frontend Engineer",
-    company: "Digital Innovations",
-    location: "Bangalore",
-    salary: "₹10-15 LPA",
-    type: "full-time",
-    matchScore: 88,
-    postedDate: "2024-01-13",
-    description: "Join our dynamic team building next-generation web applications...",
-    skills: ["JavaScript", "React", "CSS", "Git"]
-  },
-  {
-    id: "3",
-    title: "React Native Developer",
-    company: "Mobile First Co",
-    location: "Remote",
-    salary: "₹8-14 LPA",
-    type: "full-time",
-    matchScore: 82,
-    postedDate: "2024-01-12",
-    description: "Build amazing mobile experiences with React Native...",
-    skills: ["React Native", "JavaScript", "Mobile Development"]
-  }
-];
-
-const mockCourses: OngoingCourse[] = [
-  {
-    id: "1",
-    title: "Complete JavaScript Masterclass",
-    instructor: "John Smith",
-    progress: 65,
-    totalLessons: 120,
-    completedLessons: 78,
-    estimatedTime: "2 weeks remaining",
-    thumbnail: "/api/placeholder/300/200",
-    nextLesson: "Advanced Async/Await Patterns",
-    difficulty: "intermediate"
-  },
-  {
-    id: "2",
-    title: "React Performance Optimization",
-    instructor: "Sarah Johnson",
-    progress: 30,
-    totalLessons: 45,
-    completedLessons: 14,
-    estimatedTime: "1 month remaining",
-    thumbnail: "/api/placeholder/300/200",
-    nextLesson: "Memoization Techniques",
-    difficulty: "advanced"
-  },
-  {
-    id: "3",
-    title: "Node.js Backend Development",
-    instructor: "Mike Davis",
-    progress: 85,
-    totalLessons: 80,
-    completedLessons: 68,
-    estimatedTime: "1 week remaining",
-    thumbnail: "/api/placeholder/300/200",
-    nextLesson: "Database Optimization",
-    difficulty: "intermediate"
-  }
-];
-
 const Dashboard = () => {
   const { user, profile, isAuthenticated } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
   const [recommendations, setRecommendations] = useState<JobRecommendation[]>([]);
   const [courses, setCourses] = useState<OngoingCourse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate API calls
-    setTimeout(() => {
-      setApplications(mockApplications);
-      setRecommendations(mockRecommendations);
-      setCourses(mockCourses);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    if (!isAuthenticated) return;
+
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem('token');
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        };
+
+        // Fetch all dashboard data in parallel
+        const [applicationsRes, recommendationsRes, coursesRes] = await Promise.all([
+          fetch(API_ENDPOINTS.DASHBOARD_APPLICATIONS + '?limit=10', { headers }),
+          fetch(API_ENDPOINTS.DASHBOARD_RECOMMENDATIONS + '?limit=10', { headers }),
+          fetch(API_ENDPOINTS.DASHBOARD_COURSES + '?limit=10', { headers })
+        ]);
+
+        // Parse responses
+        const applicationsData = await applicationsRes.json();
+        const recommendationsData = await recommendationsRes.json();
+        const coursesData = await coursesRes.json();
+
+        // Set applications
+        if (applicationsData.success && applicationsData.data) {
+          setApplications(applicationsData.data);
+        }
+
+        // Set recommendations
+        if (recommendationsData.success && recommendationsData.data) {
+          setRecommendations(recommendationsData.data);
+        }
+
+        // Set courses
+        if (coursesData.success && coursesData.data) {
+          setCourses(coursesData.data);
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to load dashboard data. Please try again.');
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [isAuthenticated]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -262,6 +186,14 @@ const Dashboard = () => {
             Welcome back, {user?.name}! Here's what's happening with your career journey.
           </p>
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+            <p className="font-medium">Error loading dashboard data</p>
+            <p className="text-sm mt-1">{error}</p>
+          </div>
+        )}
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

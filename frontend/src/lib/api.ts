@@ -43,6 +43,11 @@ export const API_ENDPOINTS = {
   APPLICATION_FOLLOWUPS: (id: string) => `${API_BASE_URL}/api/applications/${id}/followups`,
   APPLICATION_NOTES: (id: string) => `${API_BASE_URL}/api/applications/${id}/notes`,
   APPLICATION_STATS: `${API_BASE_URL}/api/applications/stats/overview`,
+  
+  // Recruiter endpoints
+  RECRUITER_JOBS: `${API_BASE_URL}/api/recruiter/jobs`,
+  RECRUITER_JOB_BY_ID: (id: string) => `${API_BASE_URL}/api/recruiter/jobs/${id}`,
+  RECRUITER_JOB_APPLICANTS: (id: string) => `${API_BASE_URL}/api/recruiter/jobs/${id}/applicants`,
 };
 
 export default API_BASE_URL;

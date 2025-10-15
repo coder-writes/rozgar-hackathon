@@ -19,9 +19,12 @@ import {
   Eye,
   TrendingUp,
   Calendar,
-  ChevronRight
+  ChevronRight,
+  PlusCircle
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { API_ENDPOINTS } from "@/lib/api";
+import { CreatePostModal } from "@/components/CreatePostModal";
 
 interface Post {
   id: string;
@@ -29,9 +32,10 @@ interface Post {
   title: string;
   content: string;
   author: {
+    id?: string;
     name: string;
     role: string;
-    community: string;
+    community?: string;
   };
   community: {
     id: string;
@@ -44,6 +48,7 @@ interface Post {
     comments: number;
     shares: number;
     views: number;
+    isLikedByUser?: boolean;
   };
   metadata?: {
     company?: string;
@@ -55,135 +60,88 @@ interface Post {
   };
 }
 
-// Mock data - replace with actual API calls
-const mockPosts: Post[] = [
-  {
-    id: "1",
-    type: "job",
-    title: "Senior React Developer",
-    content: "We're looking for an experienced React developer to join our growing team. Remote work available.",
-    author: {
-      name: "Tech Corp HR",
-      role: "Recruiter",
-      community: "Mumbai Tech Community"
-    },
-    community: {
-      id: "mumbai-tech",
-      name: "Mumbai Tech Community",
-      type: "location"
-    },
-    createdAt: "2024-01-15T10:30:00Z",
-    engagement: {
-      likes: 24,
-      comments: 8,
-      shares: 3,
-      views: 156
-    },
-    metadata: {
-      company: "Tech Corp",
-      location: "Mumbai/Remote",
-      salary: "₹8-15 LPA"
-    }
-  },
-  {
-    id: "2",
-    type: "course",
-    title: "Complete JavaScript Masterclass",
-    content: "Learn modern JavaScript from basics to advanced concepts. Includes ES6+, async programming, and more.",
-    author: {
-      name: "John Educator",
-      role: "Instructor",
-      community: "JavaScript Developers"
-    },
-    community: {
-      id: "js-devs",
-      name: "JavaScript Developers",
-      type: "skill"
-    },
-    createdAt: "2024-01-14T14:20:00Z",
-    engagement: {
-      likes: 42,
-      comments: 15,
-      shares: 8,
-      views: 324
-    },
-    metadata: {
-      duration: "12 weeks",
-      price: "₹2,499"
-    }
-  },
-  {
-    id: "3",
-    type: "post",
-    title: "Tips for Remote Work Productivity",
-    content: "Sharing my experience working remotely for 3 years. Here are the top strategies that helped me stay productive...",
-    author: {
-      name: "Sarah Remote",
-      role: "Software Engineer",
-      community: "Remote Workers India"
-    },
-    community: {
-      id: "remote-workers",
-      name: "Remote Workers India",
-      type: "topic"
-    },
-    createdAt: "2024-01-14T09:15:00Z",
-    engagement: {
-      likes: 67,
-      comments: 23,
-      shares: 12,
-      views: 445
-    }
-  },
-  {
-    id: "4",
-    type: "poll",
-    title: "Which technology should I learn next?",
-    content: "I'm a frontend developer with 2 years experience. Looking to expand my skillset. What would you recommend?",
-    author: {
-      name: "Dev Curious",
-      role: "Frontend Developer",
-      community: "Frontend Developers"
-    },
-    community: {
-      id: "frontend-devs",
-      name: "Frontend Developers",
-      type: "skill"
-    },
-    createdAt: "2024-01-13T16:45:00Z",
-    engagement: {
-      likes: 18,
-      comments: 34,
-      shares: 2,
-      views: 267
-    },
-    metadata: {
-      pollOptions: ["Node.js & Backend", "React Native", "TypeScript", "Vue.js"]
-    }
-  }
-];
-
-const mockCommunities = [
-  { id: "mumbai-tech", name: "Mumbai Tech Community", members: 2400, type: "location" },
-  { id: "js-devs", name: "JavaScript Developers", members: 8900, type: "skill" },
-  { id: "remote-workers", name: "Remote Workers India", members: 1200, type: "topic" },
-  { id: "frontend-devs", name: "Frontend Developers", members: 5600, type: "skill" },
-  { id: "delhi-startups", name: "Delhi Startup Network", members: 3200, type: "location" }
-];
+interface Community {
+  id: string;
+  name: string;
+  members?: number;
+  memberCount?: number;
+  type: 'location' | 'skill' | 'topic';
+}
 
 const Feed = () => {
   const { user, isAuthenticated } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'job' | 'course' | 'post' | 'poll'>('all');
+  const [showCreatePostModal, setShowCreatePostModal] = useState(false);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setPosts(mockPosts);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    if (!isAuthenticated) return;
+
+    const fetchFeedData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem('token');
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        };
+
+        // Fetch feed posts and communities in parallel
+        const [feedRes, communitiesRes] = await Promise.all([
+          fetch(API_ENDPOINTS.FEED + `?page=1&limit=20&type=${activeFilter}`, { headers }),
+          fetch(API_ENDPOINTS.COMMUNITIES + '/my', { headers })
+        ]);
+
+        const feedData = await feedRes.json();
+        const communitiesData = await communitiesRes.json();
+
+        if (feedData.success && feedData.data) {
+          setPosts(feedData.data.posts || []);
+        }
+
+        if (communitiesData.success && communitiesData.data) {
+          setCommunities(communitiesData.data || []);
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching feed data:', err);
+        setError('Failed to load feed. Please try again.');
+        setLoading(false);
+      }
+    };
+
+    fetchFeedData();
+  }, [isAuthenticated, activeFilter]);
+
+  const handlePostCreated = () => {
+    // Refetch feed data when a new post is created
+    const fetchFeedData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        };
+
+        const feedRes = await fetch(API_ENDPOINTS.FEED + `?page=1&limit=20&type=${activeFilter}`, { headers });
+        const feedData = await feedRes.json();
+
+        if (feedData.success && feedData.data) {
+          setPosts(feedData.data.posts || []);
+        }
+      } catch (err) {
+        console.error('Error refreshing feed:', err);
+      }
+    };
+
+    fetchFeedData();
+  };
 
   const filteredPosts = activeFilter === 'all' 
     ? posts 
@@ -239,7 +197,7 @@ const Feed = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {mockCommunities.slice(0, 4).map((community) => (
+                {communities.slice(0, 4).map((community) => (
                   <Link 
                     key={community.id}
                     to={`/community/${community.id}`}
@@ -252,7 +210,7 @@ const Feed = () => {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{community.name}</p>
-                      <p className="text-xs text-muted-foreground">{community.members} members</p>
+                      <p className="text-xs text-muted-foreground">{community.memberCount || community.members || 0} members</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </Link>
@@ -270,6 +228,18 @@ const Feed = () => {
 
           {/* Main Feed */}
           <div className="lg:col-span-2">
+            {/* Create Post Button */}
+            <div className="mb-6">
+              <Button 
+                onClick={() => setShowCreatePostModal(true)} 
+                className="w-full"
+                size="lg"
+              >
+                <PlusCircle className="h-5 w-5 mr-2" />
+                Create New Post
+              </Button>
+            </div>
+
             {/* Filter Tabs */}
             <div className="flex gap-2 mb-6 overflow-x-auto">
               {['all', 'job', 'course', 'post', 'poll'].map((filter) => (
@@ -448,7 +418,7 @@ const Feed = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {mockCommunities.slice(0, 5).map((community, index) => (
+                {communities.slice(0, 5).map((community, index) => (
                   <Link 
                     key={community.id}
                     to={`/community/${community.id}`}
@@ -459,7 +429,7 @@ const Feed = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{community.name}</p>
-                      <p className="text-xs text-muted-foreground">{community.members} members</p>
+                      <p className="text-xs text-muted-foreground">{community.memberCount || community.members || 0} members</p>
                     </div>
                   </Link>
                 ))}
@@ -475,6 +445,12 @@ const Feed = () => {
           </div>
         </div>
       </div>
+
+      <CreatePostModal 
+        open={showCreatePostModal}
+        onOpenChange={setShowCreatePostModal}
+        onSuccess={handlePostCreated}
+      />
       
       <Footer />
     </div>

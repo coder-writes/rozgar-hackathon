@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Card } from "@/components/ui/card";
@@ -6,45 +6,44 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { BookOpen, Award, ExternalLink, CheckCircle2, Clock } from "lucide-react";
-
-const mockCourses = [
-  {
-    id: 1,
-    title: "React Fundamentals",
-    description: "Master the basics of React including hooks, state management, and component architecture",
-    category: "Frontend",
-    difficulty: "Beginner",
-    duration: "8 hours",
-    source: "Coursera",
-    link: "https://coursera.org",
-    status: null
-  },
-  {
-    id: 2,
-    title: "TypeScript for Beginners",
-    description: "Learn TypeScript from scratch and add type safety to your JavaScript projects",
-    category: "Programming",
-    difficulty: "Beginner",
-    duration: "6 hours",
-    source: "Udemy",
-    link: "https://udemy.com",
-    status: "in-progress"
-  },
-  {
-    id: 3,
-    title: "Advanced Node.js",
-    description: "Build scalable backend applications with Node.js, Express, and MongoDB",
-    category: "Backend",
-    difficulty: "Advanced",
-    duration: "12 hours",
-    source: "YouTube",
-    link: "https://youtube.com",
-    status: "completed"
-  },
-];
+import { API_ENDPOINTS } from "@/lib/api";
 
 const Skills = () => {
-  const [courses, setCourses] = useState(mockCourses);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        };
+
+        const response = await fetch(API_ENDPOINTS.DASHBOARD_COURSES, { headers });
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          setCourses(data.data);
+        } else {
+          // If no courses, set empty array
+          setCourses([]);
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching courses:', err);
+        setError('Failed to load courses. Please try again.');
+        setCourses([]);
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
 
   const handleStatusChange = (courseId: number, newStatus: string | null) => {
     setCourses(prev => prev.map(course => 

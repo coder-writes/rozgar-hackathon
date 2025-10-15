@@ -146,6 +146,9 @@ const mockJobs = [
 
 
 const Jobs = () => {
+  const [jobs, setJobs] = useState(mockJobs); // Initialize with mockJobs for now
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
@@ -155,9 +158,9 @@ const Jobs = () => {
   const [bookmarkedJobs, setBookmarkedJobs] = useState<number[]>([]);
   const [sortBy, setSortBy] = useState<string>("recent");
 
-  const allSkills = Array.from(new Set(mockJobs.flatMap(job => job.skills)));
-  const allCities = Array.from(new Set(mockJobs.map(job => job.city))).sort();
-  const allCategories = Array.from(new Set(mockJobs.map(job => job.category))).sort();
+  const allSkills = Array.from(new Set(jobs.flatMap(job => job.skills)));
+  const allCities = Array.from(new Set(jobs.map(job => job.city))).sort();
+  const allCategories = Array.from(new Set(jobs.map(job => job.category))).sort();
 
   const toggleBookmark = (jobId: number) => {
     setBookmarkedJobs(prev =>
@@ -165,7 +168,7 @@ const Jobs = () => {
     );
   };
 
-  const filteredJobs = mockJobs.filter(job => {
+  const filteredJobs = jobs.filter(job => {
     const matchesSearch = 
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -222,7 +225,7 @@ const Jobs = () => {
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2 text-foreground">Find Your Next Opportunity</h1>
           <p className="text-muted-foreground">
-            Discover {mockJobs.length} jobs matched to your skills and interests
+            Discover {jobs.length} jobs matched to your skills and interests
           </p>
         </div>
 

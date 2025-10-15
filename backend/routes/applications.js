@@ -289,6 +289,41 @@ router.put('/:id/status', authMiddleware, async (req, res) => {
   }
 });
 
+// Get interviews for application
+router.get('/:id/interviews', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const applicationId = req.params.id;
+
+    const application = await JobApplication.findOne({
+      _id: applicationId,
+      applicant: userId
+    });
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: 'Application not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        interviews: application.interviews,
+        nextInterview: application.getNextInterview()
+      }
+    });
+  } catch (error) {
+    console.error('Get interviews error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch interviews',
+      error: error.message
+    });
+  }
+});
+
 // Add interview to application
 router.post('/:id/interviews', authMiddleware, async (req, res) => {
   try {
@@ -344,6 +379,40 @@ router.post('/:id/interviews', authMiddleware, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to add interview',
+      error: error.message
+    });
+  }
+});
+
+// Get follow-ups for application
+router.get('/:id/followups', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const applicationId = req.params.id;
+
+    const application = await JobApplication.findOne({
+      _id: applicationId,
+      applicant: userId
+    });
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: 'Application not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        followUps: application.followUps
+      }
+    });
+  } catch (error) {
+    console.error('Get follow-ups error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch follow-ups',
       error: error.message
     });
   }
@@ -437,6 +506,40 @@ router.post('/:id/deadlines', authMiddleware, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to add deadline',
+      error: error.message
+    });
+  }
+});
+
+// Get application notes
+router.get('/:id/notes', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const applicationId = req.params.id;
+
+    const application = await JobApplication.findOne({
+      _id: applicationId,
+      applicant: userId
+    });
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: 'Application not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        notes: application.notes
+      }
+    });
+  } catch (error) {
+    console.error('Get notes error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch notes',
       error: error.message
     });
   }

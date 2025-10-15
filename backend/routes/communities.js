@@ -368,6 +368,210 @@ router.post('/:id/leave', authMiddleware, async (req, res) => {
   }
 });
 
+// Get posts from a specific community
+router.get('/:id/posts', authMiddleware, async (req, res) => {
+  try {
+    const communityId = req.params.id;
+    const userId = req.user.userId;
+    const {
+      page = 1,
+      limit = 10,
+      type = 'all'
+    } = req.query;
+
+    // Check if user is member of the community
+    const community = await Community.findOne({
+      _id: communityId,
+      'members.user': userId,
+      isActive: true
+    });
+
+    if (!community) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must be a member of this community to view its posts'
+      });
+    }
+
+    // Build query
+    const query = {
+      community: communityId,
+      isActive: true,
+      isApproved: true
+    };
+
+    // Add type filter
+    if (type && type !== 'all') {
+      query.type = type;
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [posts, totalCount] = await Promise.all([
+      Post.find(query)
+        .populate('author', 'name email location')
+        .populate('community', 'name type')
+        .sort({ 
+          isPinned: -1,
+          createdAt: -1
+        })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Post.countDocuments(query)
+    ]);
+
+    // Format posts
+    const formattedPosts = posts.map(post => ({
+      id: post._id,
+      type: post.type,
+      title: post.title,
+      content: post.content,
+      author: {
+        id: post.author._id,
+        name: post.author.name,
+        role: getAuthorRole(community, post.author._id)
+      },
+      community: {
+        id: post.community._id,
+        name: post.community.name,
+        type: post.community.type
+      },
+      createdAt: post.createdAt,
+      engagement: {
+        likes: post.likeCount,
+        comments: post.commentCount,
+        shares: post.shareCount,
+        views: post.viewCount,
+        isLikedByUser: post.isLikedBy(userId)
+      },
+      metadata: post.metadata,
+      tags: post.tags,
+      images: post.images,
+      isPinned: post.isPinned
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        posts: formattedPosts,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: totalCount,
+          pages: Math.ceil(totalCount / parseInt(limit))
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get community posts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch community posts',
+      error: error.message
+    });
+  }
+});
+
+// Create a post in a community
+router.post('/:id/posts', authMiddleware, async (req, res) => {
+  try {
+    const communityId = req.params.id;
+    const userId = req.user.userId;
+    const {
+      type = 'post',
+      title,
+      content,
+      metadata = {},
+      tags = [],
+      images = []
+    } = req.body;
+
+    // Validate required fields
+    if (!title || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and content are required'
+      });
+    }
+
+    // Check if user is member of the community
+    const community = await Community.findOne({
+      _id: communityId,
+      'members.user': userId,
+      isActive: true
+    });
+
+    if (!community) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must be a member of this community to post'
+      });
+    }
+
+    // Create new post
+    const post = new Post({
+      type,
+      title: title.trim(),
+      content: content.trim(),
+      author: userId,
+      community: communityId,
+      metadata,
+      tags,
+      images,
+      isActive: true,
+      isApproved: true // Auto-approve, or set to false for moderation
+    });
+
+    await post.save();
+
+    // Increment community post count
+    community.postCount = (community.postCount || 0) + 1;
+    await community.save();
+
+    // Populate author for response
+    await post.populate('author', 'name email location');
+
+    res.status(201).json({
+      success: true,
+      message: 'Post created successfully',
+      data: {
+        id: post._id,
+        type: post.type,
+        title: post.title,
+        content: post.content,
+        author: {
+          id: post.author._id,
+          name: post.author.name,
+          role: getAuthorRole(community, post.author._id)
+        },
+        community: {
+          id: community._id,
+          name: community.name,
+          type: community.type
+        },
+        createdAt: post.createdAt,
+        engagement: {
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          views: 0,
+          isLikedByUser: false
+        },
+        metadata: post.metadata,
+        tags: post.tags,
+        images: post.images
+      }
+    });
+  } catch (error) {
+    console.error('Create community post error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create post',
+      error: error.message
+    });
+  }
+});
+
 // Create a new community
 router.post('/', authMiddleware, async (req, res) => {
   try {
@@ -497,5 +701,235 @@ router.get('/:id/members', authMiddleware, async (req, res) => {
     });
   }
 });
+
+// Like a post in a community
+router.post('/:communityId/posts/:postId/like', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { communityId, postId } = req.params;
+
+    // Check if user is member of the community
+    const community = await Community.findOne({
+      _id: communityId,
+      'members.user': userId,
+      isActive: true
+    });
+
+    if (!community) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must be a member of this community to like posts'
+      });
+    }
+
+    const post = await Post.findOne({
+      _id: postId,
+      community: communityId
+    });
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found'
+      });
+    }
+
+    // Toggle like
+    const likeIndex = post.engagement.likes.findIndex(
+      like => like.user.toString() === userId.toString()
+    );
+
+    let liked = false;
+    if (likeIndex > -1) {
+      // Unlike
+      post.engagement.likes.splice(likeIndex, 1);
+      liked = false;
+    } else {
+      // Like
+      post.engagement.likes.push({
+        user: userId,
+        likedAt: new Date()
+      });
+      liked = true;
+    }
+
+    await post.save();
+
+    res.json({
+      success: true,
+      message: liked ? 'Post liked successfully' : 'Post unliked successfully',
+      data: {
+        liked,
+        likeCount: post.likeCount
+      }
+    });
+  } catch (error) {
+    console.error('Like post error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to like post',
+      error: error.message
+    });
+  }
+});
+
+// Get comments for a community post
+router.get('/:communityId/posts/:postId/comments', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { communityId, postId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    // Check if user is member of the community
+    const community = await Community.findOne({
+      _id: communityId,
+      'members.user': userId,
+      isActive: true
+    });
+
+    if (!community) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must be a member of this community to view comments'
+      });
+    }
+
+    const post = await Post.findOne({
+      _id: postId,
+      community: communityId
+    }).populate('engagement.comments.user', 'name email');
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found'
+      });
+    }
+
+    // Paginate comments
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const comments = post.engagement.comments
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(skip, skip + parseInt(limit));
+
+    res.json({
+      success: true,
+      data: {
+        comments: comments.map(comment => ({
+          id: comment._id,
+          content: comment.content,
+          user: comment.user,
+          createdAt: comment.createdAt,
+          replies: comment.replies || []
+        })),
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: post.commentCount,
+          pages: Math.ceil(post.commentCount / parseInt(limit))
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get comments error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch comments',
+      error: error.message
+    });
+  }
+});
+
+// Add a comment to a community post
+router.post('/:communityId/posts/:postId/comments', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { communityId, postId } = req.params;
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Comment content is required'
+      });
+    }
+
+    // Check if user is member of the community
+    const community = await Community.findOne({
+      _id: communityId,
+      'members.user': userId,
+      isActive: true
+    });
+
+    if (!community) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must be a member of this community to comment'
+      });
+    }
+
+    const post = await Post.findOne({
+      _id: postId,
+      community: communityId
+    });
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found'
+      });
+    }
+
+    // Add comment
+    post.engagement.comments.push({
+      user: userId,
+      content: content.trim(),
+      createdAt: new Date()
+    });
+
+    await post.save();
+
+    // Populate the new comment for response
+    await post.populate('engagement.comments.user', 'name email');
+    const newComment = post.engagement.comments[post.engagement.comments.length - 1];
+
+    res.json({
+      success: true,
+      message: 'Comment added successfully',
+      data: {
+        comment: {
+          id: newComment._id,
+          content: newComment.content,
+          user: newComment.user,
+          createdAt: newComment.createdAt
+        },
+        commentCount: post.commentCount
+      }
+    });
+  } catch (error) {
+    console.error('Add comment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add comment',
+      error: error.message
+    });
+  }
+});
+
+// Helper function to get author role in community
+function getAuthorRole(community, authorId) {
+  const member = community.members?.find(m => m.user.toString() === authorId.toString());
+  if (!member) return 'guest';
+  
+  if (community.admins?.some(admin => admin.toString() === authorId.toString())) {
+    return 'admin';
+  }
+  
+  if (community.moderators?.some(mod => mod.toString() === authorId.toString())) {
+    return 'moderator';
+  }
+  
+  return member.role || 'member';
+}
 
 export default router;
