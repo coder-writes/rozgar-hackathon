@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { API_ENDPOINTS } from "@/lib/api";
 import { 
   Users, 
   MapPin, 
@@ -125,27 +126,145 @@ const CommunityPage = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const [community, setCommunity] = useState<CommunityData | null>(null);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('posts');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (communityId && mockCommunityData[communityId]) {
-      setCommunity(mockCommunityData[communityId]);
-      setPosts(mockPosts);
-      setLoading(false);
-    } else {
-      // Handle community not found
-      setLoading(false);
+    if (communityId) {
+      fetchCommunityData();
     }
   }, [communityId]);
 
-  const handleJoinCommunity = () => {
-    if (community) {
-      setCommunity({
-        ...community,
-        isJoined: !community.isJoined,
-        members: community.isJoined ? community.members - 1 : community.members + 1
+  useEffect(() => {
+    if (communityId && activeTab === 'posts') {
+      fetchCommunityPosts();
+    } else if (communityId && activeTab === 'members') {
+      fetchCommunityMembers();
+    }
+  }, [communityId, activeTab]);
+
+  const fetchCommunityData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const token = localStorage.getItem('rozgar_token');
+      
+      const response = await fetch(API_ENDPOINTS.COMMUNITY_BY_ID(communityId!), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
+
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        const communityData = data.data;
+        setCommunity({
+          id: communityData._id,
+          name: communityData.name,
+          description: communityData.description,
+          type: communityData.type,
+          members: communityData.memberCount || 0,
+          posts: communityData.postCount || 0,
+          createdAt: communityData.createdAt,
+          isJoined: communityData.isJoined,
+          tags: communityData.tags || [],
+          admins: communityData.admins || [],
+          rules: communityData.rules || []
+        });
+      } else {
+        setError('Community not found');
+      }
+    } catch (err) {
+      console.error('Error fetching community:', err);
+      setError('Failed to load community');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCommunityPosts = async () => {
+    try {
+      const token = localStorage.getItem('rozgar_token');
+      
+      const response = await fetch(API_ENDPOINTS.COMMUNITY_POSTS(communityId!), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data && data.data.posts) {
+        setPosts(data.data.posts.map((post: any) => ({
+          id: post.id,
+          title: post.title,
+          content: post.content,
+          author: post.author.name,
+          createdAt: post.createdAt,
+          likes: post.engagement.likes,
+          comments: post.engagement.comments,
+          type: post.type
+        })));
+      }
+    } catch (err) {
+      console.error('Error fetching posts:', err);
+    }
+  };
+
+  const fetchCommunityMembers = async () => {
+    try {
+      const token = localStorage.getItem('rozgar_token');
+      
+      const response = await fetch(API_ENDPOINTS.COMMUNITY_MEMBERS(communityId!), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        setMembers(data.data.members || []);
+      }
+    } catch (err) {
+      console.error('Error fetching members:', err);
+    }
+  };
+
+  const handleJoinCommunity = async () => {
+    if (!community) return;
+    
+    try {
+      const token = localStorage.getItem('rozgar_token');
+      const endpoint = community.isJoined 
+        ? API_ENDPOINTS.COMMUNITY_LEAVE(communityId!)
+        : API_ENDPOINTS.COMMUNITY_JOIN(communityId!);
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setCommunity({
+          ...community,
+          isJoined: !community.isJoined,
+          members: community.isJoined ? community.members - 1 : community.members + 1
+        });
+      }
+    } catch (err) {
+      console.error('Error joining/leaving community:', err);
     }
   };
 
@@ -371,10 +490,61 @@ const CommunityPage = () => {
 
               <TabsContent value="members">
                 <Card>
-                  <CardContent className="text-center py-12">
-                    <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Members list</h3>
-                    <p className="text-muted-foreground">Connect with {community.members.toLocaleString()} community members.</p>
+                  <CardHeader>
+                    <CardTitle>Members ({community.members.toLocaleString()})</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {members.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">Loading members...</h3>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {members.map((member, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarFallback>
+                                  {member.user?.name?.substring(0, 2).toUpperCase() || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{member.user?.name || 'Unknown User'}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {member.user?.location || 'Location not specified'}
+                                </p>
+                                {member.user?.skills && member.user.skills.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {member.user.skills.slice(0, 3).map((skill: string, i: number) => (
+                                      <Badge key={i} variant="secondary" className="text-xs">
+                                        {skill}
+                                      </Badge>
+                                    ))}
+                                    {member.user.skills.length > 3 && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        +{member.user.skills.length - 3}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {member.isAdmin && (
+                                <Badge variant="default" className="text-xs">Admin</Badge>
+                              )}
+                              {member.isModerator && (
+                                <Badge variant="outline" className="text-xs">Mod</Badge>
+                              )}
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {member.role || 'Member'}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

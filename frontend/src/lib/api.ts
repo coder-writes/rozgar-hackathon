@@ -25,6 +25,7 @@ export const API_ENDPOINTS = {
   COMMUNITY_JOIN: (id: string) => `${API_BASE_URL}/api/communities/${id}/join`,
   COMMUNITY_LEAVE: (id: string) => `${API_BASE_URL}/api/communities/${id}/leave`,
   COMMUNITY_POSTS: (id: string) => `${API_BASE_URL}/api/communities/${id}/posts`,
+  COMMUNITY_MEMBERS: (id: string) => `${API_BASE_URL}/api/communities/${id}/members`,
   COMMUNITY_POST: (communityId: string, postId: string) => `${API_BASE_URL}/api/communities/${communityId}/posts/${postId}`,
   COMMUNITY_POST_LIKE: (communityId: string, postId: string) => `${API_BASE_URL}/api/communities/${communityId}/posts/${postId}/like`,
   COMMUNITY_POST_COMMENT: (communityId: string, postId: string) => `${API_BASE_URL}/api/communities/${communityId}/posts/${postId}/comments`,

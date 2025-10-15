@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,7 +18,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/api";
+
+interface Community {
+  _id: string;
+  id: string;
+  name: string;
+  type: string;
+}
 
 interface CreatePostModalProps {
   open: boolean;
@@ -37,14 +47,57 @@ export function CreatePostModal({
   const [content, setContent] = useState("");
   const [type, setType] = useState("discussion");
   const [tags, setTags] = useState("");
+  const [selectedCommunities, setSelectedCommunities] = useState<string[]>([]);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [loadingCommunities, setLoadingCommunities] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // Fetch user's communities when modal opens
+  useEffect(() => {
+    if (open) {
+      fetchUserCommunities();
+      // If communityId is provided, pre-select it
+      if (communityId) {
+        setSelectedCommunities([communityId]);
+      }
+    }
+  }, [open, communityId]);
+
+  const fetchUserCommunities = async () => {
+    try {
+      setLoadingCommunities(true);
+      const token = localStorage.getItem("rozgar_token");
+      const response = await fetch(API_ENDPOINTS.COMMUNITIES + '/my', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success && data.data) {
+        setCommunities(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch communities:', error);
+    } finally {
+      setLoadingCommunities(false);
+    }
+  };
+
+  const toggleCommunity = (communityId: string) => {
+    setSelectedCommunities(prev => 
+      prev.includes(communityId)
+        ? prev.filter(id => id !== communityId)
+        : [...prev, communityId]
+    );
+  };
 
   const resetForm = () => {
     setTitle("");
     setContent("");
     setType("discussion");
     setTags("");
+    setSelectedCommunities(communityId ? [communityId] : []);
     setError("");
   };
 
@@ -57,8 +110,28 @@ export function CreatePostModal({
       setError("Title is required");
       return;
     }
+    if (title.trim().length < 5) {
+      setError("Title must be at least 5 characters long");
+      return;
+    }
+    if (title.trim().length > 200) {
+      setError("Title cannot exceed 200 characters");
+      return;
+    }
     if (!content.trim()) {
       setError("Content is required");
+      return;
+    }
+    if (content.trim().length < 10) {
+      setError("Content must be at least 10 characters long");
+      return;
+    }
+    if (content.trim().length > 5000) {
+      setError("Content cannot exceed 5000 characters");
+      return;
+    }
+    if (selectedCommunities.length === 0) {
+      setError("Please select at least one community");
       return;
     }
 
@@ -77,7 +150,7 @@ export function CreatePostModal({
         content: content.trim(),
         type,
         tags: tags.split(",").map(tag => tag.trim()).filter(tag => tag !== ""),
-        ...(communityId && { communityId })
+        communityIds: selectedCommunities
       };
 
       const response = await fetch(API_ENDPOINTS.FEED_POSTS, {
@@ -89,9 +162,10 @@ export function CreatePostModal({
         body: JSON.stringify(postData)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create post");
+      const responseData = await response.json();
+
+      if (!response.ok || !responseData.success) {
+        throw new Error(responseData.message || "Failed to create post");
       }
 
       // Success
@@ -130,12 +204,17 @@ export function CreatePostModal({
             )}
 
             <div className="grid gap-2">
-              <Label htmlFor="title">
-                Title <span className="text-red-500">*</span>
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="title">
+                  Title <span className="text-red-500">*</span>
+                </Label>
+                <span className={`text-xs ${title.length < 5 ? 'text-red-500' : title.length > 180 ? 'text-orange-500' : 'text-muted-foreground'}`}>
+                  {title.length}/200 {title.length < 5 && title.length > 0 && '(min 5)'}
+                </span>
+              </div>
               <Input
                 id="title"
-                placeholder="Enter post title"
+                placeholder="Enter post title (minimum 5 characters)"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={isSubmitting}
@@ -144,12 +223,17 @@ export function CreatePostModal({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="content">
-                Content <span className="text-red-500">*</span>
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="content">
+                  Content <span className="text-red-500">*</span>
+                </Label>
+                <span className={`text-xs ${content.length < 10 ? 'text-red-500' : content.length > 4800 ? 'text-orange-500' : 'text-muted-foreground'}`}>
+                  {content.length}/5000 {content.length < 10 && content.length > 0 && '(min 10)'}
+                </span>
+              </div>
               <Textarea
                 id="content"
-                placeholder="What's on your mind?"
+                placeholder="What's on your mind? (minimum 10 characters)"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 disabled={isSubmitting}
@@ -165,12 +249,66 @@ export function CreatePostModal({
                   <SelectValue placeholder="Select post type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="discussion">Discussion</SelectItem>
-                  <SelectItem value="question">Question</SelectItem>
-                  <SelectItem value="announcement">Announcement</SelectItem>
-                  <SelectItem value="resource">Resource</SelectItem>
+                  <SelectItem value="post">Discussion</SelectItem>
+                  <SelectItem value="job">Job</SelectItem>
+                  <SelectItem value="course">Course</SelectItem>
+                  <SelectItem value="poll">Poll</SelectItem>
+                  <SelectItem value="event">Event</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>
+                Communities <span className="text-red-500">*</span>
+              </Label>
+              {loadingCommunities ? (
+                <div className="text-sm text-muted-foreground">Loading communities...</div>
+              ) : communities.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  You haven't joined any communities yet. Join communities to post!
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-3">
+                  {communities.map((community) => (
+                    <div key={community._id || community.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`community-${community._id || community.id}`}
+                        checked={selectedCommunities.includes(community._id || community.id)}
+                        onCheckedChange={() => toggleCommunity(community._id || community.id)}
+                        disabled={isSubmitting || (communityId !== undefined && (community._id || community.id) === communityId)}
+                      />
+                      <label
+                        htmlFor={`community-${community._id || community.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                      >
+                        {community.name}
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {community.type}
+                        </Badge>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {selectedCommunities.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedCommunities.map(id => {
+                    const community = communities.find(c => (c._id || c.id) === id);
+                    return community ? (
+                      <Badge key={id} variant="secondary" className="gap-1">
+                        {community.name}
+                        {communityId !== id && (
+                          <X 
+                            className="h-3 w-3 cursor-pointer" 
+                            onClick={() => toggleCommunity(id)}
+                          />
+                        )}
+                      </Badge>
+                    ) : null;
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="grid gap-2">

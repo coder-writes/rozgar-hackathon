@@ -9,8 +9,9 @@ const router = express.Router();
 router.post('/posts', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const {
+    let {
       communityId,
+      communityIds, // Support multiple communities
       type = 'post',
       title,
       content,
@@ -19,56 +20,61 @@ router.post('/posts', authMiddleware, async (req, res) => {
       images = []
     } = req.body;
 
+    // Support both single and multiple communities
+    if (!communityIds && communityId) {
+      communityIds = [communityId];
+    }
+
     // Validate required fields
-    if (!communityId || !title || !content) {
+    if (!communityIds || communityIds.length === 0 || !title || !content) {
       return res.status(400).json({
         success: false,
-        message: 'Community, title, and content are required'
+        message: 'At least one community, title, and content are required'
       });
     }
 
-    // Check if user is member of the community
-    const community = await Community.findOne({
-      _id: communityId,
+    // Check if user is member of all communities
+    const communities = await Community.find({
+      _id: { $in: communityIds },
       'members.user': userId,
       isActive: true
     });
 
-    if (!community) {
+    if (communities.length !== communityIds.length) {
       return res.status(403).json({
         success: false,
-        message: 'You must be a member of this community to post'
+        message: 'You must be a member of all selected communities to post'
       });
     }
 
-    // Create new post
-    const post = new Post({
-      type,
-      title: title.trim(),
-      content: content.trim(),
-      author: userId,
-      community: communityId,
-      metadata,
-      tags,
-      images,
-      isActive: true,
-      isApproved: true // Auto-approve, or set to false for moderation
-    });
+    // Create posts for each community
+    const createdPosts = [];
+    
+    for (const community of communities) {
+      const post = new Post({
+        type,
+        title: title.trim(),
+        content: content.trim(),
+        author: userId,
+        community: community._id,
+        metadata,
+        tags,
+        images,
+        isActive: true,
+        isApproved: true // Auto-approve, or set to false for moderation
+      });
 
-    await post.save();
+      await post.save();
 
-    // Increment community post count
-    community.postCount = (community.postCount || 0) + 1;
-    await community.save();
+      // Increment community post count
+      community.postCount = (community.postCount || 0) + 1;
+      await community.save();
 
-    // Populate author and community for response
-    await post.populate('author', 'name email location');
-    await post.populate('community', 'name type');
-
-    res.status(201).json({
-      success: true,
-      message: 'Post created successfully',
-      data: {
+      // Populate for response
+      await post.populate('author', 'name email location');
+      await post.populate('community', 'name type');
+      
+      createdPosts.push({
         id: post._id,
         type: post.type,
         title: post.title,
@@ -94,13 +100,30 @@ router.post('/posts', authMiddleware, async (req, res) => {
         metadata: post.metadata,
         tags: post.tags,
         images: post.images
-      }
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Post created successfully in ${createdPosts.length} ${createdPosts.length === 1 ? 'community' : 'communities'}`,
+      data: createdPosts.length === 1 ? createdPosts[0] : createdPosts
     });
   } catch (error) {
     console.error('Create post error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: validationErrors.join('. '),
+        error: 'Validation failed'
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to create post',
+      message: error.message || 'Failed to create post',
       error: error.message
     });
   }
