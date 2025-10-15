@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -24,15 +25,28 @@ import {
   X,
   Plus,
   Loader2,
+  Building2,
+  Users as UsersIcon,
+  Globe,
+  Calendar,
+  Edit,
 } from "lucide-react";
 import axios from "axios";
 
 const Profile = () => {
   const { toast } = useToast();
   const { user, profile, fetchProfile, updateProfile, isProfileLoading } = useAuth();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(true);
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Check if user is a recruiter
+  const isRecruiter = user?.role === "recruiter";
+  
+  // Recruiter profile state
+  const [recruiterProfile, setRecruiterProfile] = useState<any>(null);
+  const [loadingRecruiterProfile, setLoadingRecruiterProfile] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -46,10 +60,43 @@ const Profile = () => {
   
   const [currentSkill, setCurrentSkill] = useState("");
   
+  // Fetch recruiter profile if user is a recruiter
+  useEffect(() => {
+    const fetchRecruiterProfile = async () => {
+      if (isRecruiter) {
+        setLoadingRecruiterProfile(true);
+        try {
+          const token = localStorage.getItem("rozgar_token");
+          const response = await axios.get(API_ENDPOINTS.RECRUITER_PROFILE, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (response.data.success) {
+            setRecruiterProfile(response.data.data);
+            setProfileCompletion(response.data.data.profileCompletion || 0);
+          }
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            // No profile exists yet
+            setRecruiterProfile(null);
+          } else {
+            console.error("Error fetching recruiter profile:", error);
+          }
+        } finally {
+          setLoadingRecruiterProfile(false);
+        }
+      }
+    };
+
+    fetchRecruiterProfile();
+  }, [isRecruiter]);
+  
   // Load existing profile data from global state when component mounts
   useEffect(() => {
     const loadProfile = async () => {
-      if (user?.email) {
+      if (user?.email && !isRecruiter) {
         // Fetch profile if not already loaded
         if (!profile) {
           await fetchProfile();
@@ -75,11 +122,11 @@ const Profile = () => {
     };
     
     loadProfile();
-  }, [user, profile, fetchProfile]);
+  }, [user, profile, fetchProfile, isRecruiter]);
 
   // Update form when profile is loaded
   useEffect(() => {
-    if (profile) {
+    if (profile && !isRecruiter) {
       setFormData({
         name: profile.name || "",
         email: profile.email || "",
@@ -94,7 +141,7 @@ const Profile = () => {
       });
       setProfileCompletion(profile.profileCompletion || 0);
       setIsEditing(false);
-    } else if (user && !isProfileLoading) {
+    } else if (user && !isProfileLoading && !isRecruiter) {
       // No profile exists, use user data
       setFormData(prev => ({
         ...prev,
@@ -102,7 +149,7 @@ const Profile = () => {
         email: user.email || "",
       }));
     }
-  }, [profile, user, isProfileLoading]);
+  }, [profile, user, isProfileLoading, isRecruiter]);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -231,7 +278,7 @@ const Profile = () => {
   };
   
   // Show loading state
-  if (isProfileLoading) {
+  if (isProfileLoading || (isRecruiter && loadingRecruiterProfile)) {
     return (
       <div className="min-h-screen bg-gradient-subtle">
         <Navbar />
@@ -246,6 +293,298 @@ const Profile = () => {
     );
   }
   
+  // Recruiter Profile View
+  if (isRecruiter) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle">
+        <Navbar />
+        
+        {/* Hero Section */}
+        <section className="relative overflow-hidden bg-gradient-hero">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute top-10 right-20 w-64 h-64 bg-primary-foreground/10 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-10 left-20 w-80 h-80 bg-accent/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          </div>
+          
+          <div className="relative container mx-auto px-4 py-16">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/10 backdrop-blur-sm border border-primary-foreground/20">
+                <Building2 className="h-4 w-4 text-primary-foreground" />
+                <span className="text-sm font-medium text-primary-foreground">Recruiter Profile</span>
+              </div>
+              
+              <h1 className="text-4xl md:text-6xl font-bold text-primary-foreground">
+                Company Profile
+              </h1>
+              
+              <p className="text-lg text-primary-foreground/90 max-w-2xl">
+                Manage your company information and connect with talented professionals
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Profile Content */}
+        <section className="container mx-auto px-4 py-12">
+          {recruiterProfile ? (
+            <div className="max-w-5xl mx-auto space-y-6">
+              {/* Profile Completion */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Profile Completion</span>
+                      <span className="font-semibold text-primary">{profileCompletion}%</span>
+                    </div>
+                    <Progress value={profileCompletion} className="h-2" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Company Information */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-primary" />
+                      <CardTitle>Company Information</CardTitle>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate("/recruiter/profile")}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Profile
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-muted-foreground">Company Name</Label>
+                      <p className="text-lg font-semibold mt-1">{recruiterProfile.companyName}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Industry</Label>
+                      <p className="text-lg font-semibold mt-1">{recruiterProfile.industry || "Not specified"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Company Size</Label>
+                      <p className="text-lg font-semibold mt-1">{recruiterProfile.companySize || "Not specified"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Company Type</Label>
+                      <p className="text-lg font-semibold mt-1">{recruiterProfile.companyType || "Not specified"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Established Year</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-lg font-semibold">{recruiterProfile.establishedYear}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Number of Employees</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <UsersIcon className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-lg font-semibold">{recruiterProfile.numberOfEmployees}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {recruiterProfile.companyDescription && (
+                    <div>
+                      <Label className="text-muted-foreground">About Company</Label>
+                      <p className="mt-2 text-foreground">{recruiterProfile.companyDescription}</p>
+                    </div>
+                  )}
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {recruiterProfile.companyWebsite && (
+                      <div>
+                        <Label className="text-muted-foreground">Website</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Globe className="h-4 w-4 text-muted-foreground" />
+                          <a
+                            href={recruiterProfile.companyWebsite}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            {recruiterProfile.companyWebsite}
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    {recruiterProfile.companyEmail && (
+                      <div>
+                        <Label className="text-muted-foreground">Email</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-foreground">{recruiterProfile.companyEmail}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Location */}
+              {recruiterProfile.location && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5 text-primary" />
+                      <CardTitle>Location</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {recruiterProfile.location.address && (
+                        <p className="text-foreground">{recruiterProfile.location.address}</p>
+                      )}
+                      <p className="text-foreground">
+                        {[
+                          recruiterProfile.location.city,
+                          recruiterProfile.location.state,
+                          recruiterProfile.location.country,
+                          recruiterProfile.location.pincode
+                        ].filter(Boolean).join(", ")}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Hiring Positions */}
+              {recruiterProfile.hiringFor && recruiterProfile.hiringFor.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 text-primary" />
+                      <CardTitle>Currently Hiring For</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {recruiterProfile.hiringFor.map((position: any, index: number) => (
+                        <div key={index} className="p-4 border rounded-lg">
+                          <h4 className="font-semibold text-lg">{position.role}</h4>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {position.positions} position{position.positions > 1 ? 's' : ''} • {position.experienceRequired}
+                          </p>
+                          {position.skills && position.skills.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {position.skills.map((skill: string, skillIndex: number) => (
+                                <Badge key={skillIndex} variant="secondary">{skill}</Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Benefits */}
+              {recruiterProfile.benefits && recruiterProfile.benefits.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Company Benefits</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {recruiterProfile.benefits.map((benefit: string, index: number) => (
+                        <Badge key={index} variant="secondary" className="px-3 py-1">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          {benefit}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Social Links */}
+              {recruiterProfile.socialLinks && Object.values(recruiterProfile.socialLinks).some((link: any) => link) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Social Media</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-4">
+                      {recruiterProfile.socialLinks.linkedin && (
+                        <a
+                          href={recruiterProfile.socialLinks.linkedin}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          LinkedIn
+                        </a>
+                      )}
+                      {recruiterProfile.socialLinks.twitter && (
+                        <a
+                          href={recruiterProfile.socialLinks.twitter}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Twitter
+                        </a>
+                      )}
+                      {recruiterProfile.socialLinks.facebook && (
+                        <a
+                          href={recruiterProfile.socialLinks.facebook}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Facebook
+                        </a>
+                      )}
+                      {recruiterProfile.socialLinks.instagram && (
+                        <a
+                          href={recruiterProfile.socialLinks.instagram}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Instagram
+                        </a>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <Card className="max-w-2xl mx-auto">
+              <CardHeader className="text-center">
+                <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <CardTitle>Complete Your Company Profile</CardTitle>
+                <CardDescription>
+                  Create your company profile to start posting jobs and connecting with candidates
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <Button onClick={() => navigate("/recruiter/profile")} size="lg">
+                  <Plus className="h-5 w-5 mr-2" />
+                  Create Company Profile
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </section>
+
+        <Footer />
+      </div>
+    );
+  }
+  
+  // Job Seeker Profile View (existing code)
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <Navbar />

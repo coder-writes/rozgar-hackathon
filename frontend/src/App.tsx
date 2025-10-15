@@ -16,6 +16,7 @@ import Community from "./pages/Community";
 import CommunityPage from "./pages/CommunityPage";
 import CommunitiesPage from "./pages/CommunitiesPage";
 import Profile from "./pages/Profile";
+import RecruiterProfile from "./pages/RecruiterProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -100,6 +101,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/profile"
+              element={
+                <ProtectedRoute>
+                  <RecruiterProfile />
                 </ProtectedRoute>
               }
             />

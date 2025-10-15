@@ -17,7 +17,7 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get("tab") || "signin";
   const navigate = useNavigate();
-  const { login, signup, isAuthenticated } = useAuth();
+  const { login, signup, isAuthenticated, user } = useAuth();
   const { toast } = useToast();
   
   const [email, setEmail] = useState("");
@@ -30,9 +30,12 @@ const Auth = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/dashboard");
+      // Redirect based on user role
+      const userRole = user?.role;
+      const redirectPath = userRole === "recruiter" ? "/recruiter/profile" : "/dashboard";
+      navigate(redirectPath);
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,9 +101,10 @@ const Auth = () => {
         description: "You have successfully signed in.",
       });
 
-      // Update auth context
+      // Update auth context and redirect based on role
       await login(email, password);
-      navigate("/dashboard");
+      const redirectPath = data.user?.role === "recruiter" ? "/recruiter/profile" : "/dashboard";
+      navigate(redirectPath);
     } catch (error) {
       console.error("Sign in error:", error);
       toast({

@@ -144,9 +144,10 @@ const VerifyOTP = () => {
           description: "Your account has been successfully verified.",
         });
 
-        // Redirect to jobs page
+        // Redirect based on user role
+        const redirectPath = data.user?.role === "recruiter" ? "/recruiter/profile" : "/jobs";
         setTimeout(() => {
-          navigate("/jobs", { replace: true });
+          navigate(redirectPath, { replace: true });
           window.location.reload(); // Reload to update auth context
         }, 500);
       } else {
