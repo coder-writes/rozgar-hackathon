@@ -20,7 +20,7 @@ const VerifyOTP = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
-  const [timer, setTimer] = useState(60);
+  const [timer, setTimer] = useState(300);
   const [canResend, setCanResend] = useState(false);
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -188,7 +188,7 @@ const VerifyOTP = () => {
         });
         
         // Reset timer
-        setTimer(60);
+        setTimer(300);
         setCanResend(false);
         
         // Clear current OTP
@@ -289,7 +289,9 @@ const VerifyOTP = () => {
                   </Button>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    Resend OTP in <span className="font-semibold text-primary">{timer}s</span>
+                    Resend OTP in <span className="font-semibold text-primary">
+                      {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}
+                    </span>
                   </p>
                 )}
               </div>
