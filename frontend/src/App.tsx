@@ -17,6 +17,7 @@ import CommunityPage from "./pages/CommunityPage";
 import CommunitiesPage from "./pages/CommunitiesPage";
 import Profile from "./pages/Profile";
 import RecruiterProfile from "./pages/RecruiterProfile";
+import RecruiterDashboard from "./pages/RecruiterDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,8 +27,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <AuthProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <AuthProvider>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
@@ -104,19 +105,11 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/recruiter/profile"
-              element={
-                <ProtectedRoute>
-                  <RecruiterProfile />
-                </ProtectedRoute>
-              }
-            />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

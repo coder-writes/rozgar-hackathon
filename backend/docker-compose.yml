@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rozgar-backend
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE}
+      - ALLOWED_FILE_TYPES=${ALLOWED_FILE_TYPES}
+    volumes:
+      # Persist uploaded files
+      - ./uploads:/app/uploads
+    networks:
+      - rozgar-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+
+networks:
+  rozgar-network:
+    driver: bridge

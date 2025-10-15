@@ -5,6 +5,107 @@ import { authMiddleware } from '../middleware/userAuth.js';
 
 const router = express.Router();
 
+// Create a new post in feed
+router.post('/posts', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const {
+      communityId,
+      type = 'post',
+      title,
+      content,
+      metadata = {},
+      tags = [],
+      images = []
+    } = req.body;
+
+    // Validate required fields
+    if (!communityId || !title || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Community, title, and content are required'
+      });
+    }
+
+    // Check if user is member of the community
+    const community = await Community.findOne({
+      _id: communityId,
+      'members.user': userId,
+      isActive: true
+    });
+
+    if (!community) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must be a member of this community to post'
+      });
+    }
+
+    // Create new post
+    const post = new Post({
+      type,
+      title: title.trim(),
+      content: content.trim(),
+      author: userId,
+      community: communityId,
+      metadata,
+      tags,
+      images,
+      isActive: true,
+      isApproved: true // Auto-approve, or set to false for moderation
+    });
+
+    await post.save();
+
+    // Increment community post count
+    community.postCount = (community.postCount || 0) + 1;
+    await community.save();
+
+    // Populate author and community for response
+    await post.populate('author', 'name email location');
+    await post.populate('community', 'name type');
+
+    res.status(201).json({
+      success: true,
+      message: 'Post created successfully',
+      data: {
+        id: post._id,
+        type: post.type,
+        title: post.title,
+        content: post.content,
+        author: {
+          id: post.author._id,
+          name: post.author.name,
+          role: getAuthorRole(community, post.author._id)
+        },
+        community: {
+          id: post.community._id,
+          name: post.community.name,
+          type: post.community.type
+        },
+        createdAt: post.createdAt,
+        engagement: {
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          views: 0,
+          isLikedByUser: false
+        },
+        metadata: post.metadata,
+        tags: post.tags,
+        images: post.images
+      }
+    });
+  } catch (error) {
+    console.error('Create post error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create post',
+      error: error.message
+    });
+  }
+});
+
 // Get personalized feed
 router.get('/', authMiddleware, async (req, res) => {
   try {

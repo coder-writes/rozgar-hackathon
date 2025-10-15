@@ -20,109 +20,24 @@ import {
   Code,
   Briefcase
 } from "lucide-react";
+import { API_ENDPOINTS } from "@/lib/api";
+import { CreateCommunityModal } from "@/components/CreateCommunityModal";
 
 interface Community {
   id: string;
+  _id?: string;
   name: string;
   description: string;
   type: 'location' | 'skill' | 'topic';
-  members: number;
-  posts: number;
+  members?: number;
+  memberCount?: number;
+  posts?: number;
+  postCount?: number;
   isJoined: boolean;
   tags: string[];
   trending?: boolean;
   featured?: boolean;
 }
-
-// Mock data - replace with actual API calls
-const mockCommunities: Community[] = [
-  {
-    id: 'mumbai-tech',
-    name: 'Mumbai Tech Community',
-    description: 'Connect with tech professionals in Mumbai. Share opportunities, network, and grow together.',
-    type: 'location',
-    members: 2400,
-    posts: 156,
-    isJoined: true,
-    tags: ['Technology', 'Networking', 'Jobs'],
-    trending: true,
-    featured: true
-  },
-  {
-    id: 'js-devs',
-    name: 'JavaScript Developers',
-    description: 'Learn, share, and discuss everything JavaScript. From basics to advanced concepts.',
-    type: 'skill',
-    members: 8900,
-    posts: 543,
-    isJoined: true,
-    tags: ['JavaScript', 'React', 'Node.js'],
-    trending: true
-  },
-  {
-    id: 'remote-workers',
-    name: 'Remote Workers India',
-    description: 'Tips, tools, and support for remote professionals across India.',
-    type: 'topic',
-    members: 1200,
-    posts: 89,
-    isJoined: false,
-    tags: ['Remote Work', 'Productivity', 'Work-Life Balance']
-  },
-  {
-    id: 'delhi-startups',
-    name: 'Delhi Startup Network',
-    description: 'Entrepreneurs and startup enthusiasts in Delhi NCR.',
-    type: 'location',
-    members: 3200,
-    posts: 234,
-    isJoined: false,
-    tags: ['Startups', 'Entrepreneurship', 'Funding'],
-    featured: true
-  },
-  {
-    id: 'python-devs',
-    name: 'Python Developers',
-    description: 'Python programming community for developers of all levels.',
-    type: 'skill',
-    members: 6500,
-    posts: 432,
-    isJoined: false,
-    tags: ['Python', 'Django', 'Data Science']
-  },
-  {
-    id: 'ui-ux-designers',
-    name: 'UI/UX Designers India',
-    description: 'Share designs, get feedback, and network with fellow designers.',
-    type: 'skill',
-    members: 4300,
-    posts: 298,
-    isJoined: false,
-    tags: ['Design', 'UI/UX', 'Figma'],
-    trending: true
-  },
-  {
-    id: 'bangalore-tech',
-    name: 'Bangalore Tech Hub',
-    description: 'The largest tech community in India\'s Silicon Valley.',
-    type: 'location',
-    members: 5600,
-    posts: 678,
-    isJoined: false,
-    tags: ['Technology', 'Innovation', 'Meetups'],
-    featured: true
-  },
-  {
-    id: 'blockchain-enthusiasts',
-    name: 'Blockchain & Web3',
-    description: 'Explore the future of decentralized technology.',
-    type: 'topic',
-    members: 1800,
-    posts: 167,
-    isJoined: false,
-    tags: ['Blockchain', 'Web3', 'Cryptocurrency']
-  }
-];
 
 const CommunitiesPage = () => {
   const [communities, setCommunities] = useState<Community[]>([]);
@@ -130,48 +45,109 @@ const CommunitiesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'location' | 'skill' | 'topic'>('all');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setCommunities(mockCommunities);
-      setFilteredCommunities(mockCommunities);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    const fetchCommunities = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  useEffect(() => {
-    let filtered = communities;
+        const token = localStorage.getItem('token');
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        };
 
-    // Filter by type
-    if (activeFilter !== 'all') {
-      filtered = filtered.filter(community => community.type === activeFilter);
+        const type = activeFilter === 'all' ? '' : `&type=${activeFilter}`;
+        const search = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+        
+        const response = await fetch(
+          API_ENDPOINTS.COMMUNITIES + `?page=1&limit=50${type}${search}`,
+          { headers }
+        );
+
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          const formattedCommunities = (data.data.communities || []).map((comm: any) => ({
+            id: comm._id || comm.id,
+            name: comm.name,
+            description: comm.description,
+            type: comm.type,
+            members: comm.memberCount || comm.members || 0,
+            posts: comm.postCount || comm.posts || 0,
+            isJoined: comm.isJoined || false,
+            tags: comm.tags || [],
+            trending: comm.trending,
+            featured: comm.featured
+          }));
+          
+          setCommunities(formattedCommunities);
+          setFilteredCommunities(formattedCommunities);
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching communities:', err);
+        setError('Failed to load communities. Please try again.');
+        setLoading(false);
+      }
+    };
+
+    fetchCommunities();
+  }, [activeFilter, searchQuery]);
+
+  const handleJoinCommunity = async (communityId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+
+      const community = communities.find(c => c.id === communityId);
+      if (!community) return;
+
+      const endpoint = community.isJoined 
+        ? API_ENDPOINTS.COMMUNITY_LEAVE(communityId)
+        : API_ENDPOINTS.COMMUNITY_JOIN(communityId);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update local state
+        setCommunities(prev =>
+          prev.map(comm =>
+            comm.id === communityId
+              ? {
+                  ...comm,
+                  isJoined: !comm.isJoined,
+                  members: data.data.memberCount || (comm.isJoined ? comm.members! - 1 : comm.members! + 1)
+                }
+              : comm
+          )
+        );
+        setFilteredCommunities(prev =>
+          prev.map(comm =>
+            comm.id === communityId
+              ? {
+                  ...comm,
+                  isJoined: !comm.isJoined,
+                  members: data.data.memberCount || (comm.isJoined ? comm.members! - 1 : comm.members! + 1)
+                }
+              : comm
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error joining/leaving community:', err);
     }
-
-    // Filter by search query
-    if (searchQuery) {
-      filtered = filtered.filter(community =>
-        community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        community.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        community.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-    }
-
-    setFilteredCommunities(filtered);
-  }, [communities, activeFilter, searchQuery]);
-
-  const handleJoinCommunity = (communityId: string) => {
-    setCommunities(prev =>
-      prev.map(community =>
-        community.id === communityId
-          ? {
-              ...community,
-              isJoined: !community.isJoined,
-              members: community.isJoined ? community.members - 1 : community.members + 1
-            }
-          : community
-      )
-    );
   };
 
   const getTypeIcon = (type: string) => {
@@ -192,8 +168,54 @@ const CommunitiesPage = () => {
     }
   };
 
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
   const featuredCommunities = communities.filter(c => c.featured);
   const trendingCommunities = communities.filter(c => c.trending);
+
+  const handleCommunityCreated = () => {
+    // Refresh communities list
+    const fetchCommunities = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        };
+
+        const type = activeFilter === 'all' ? '' : `&type=${activeFilter}`;
+        const search = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+        
+        const response = await fetch(
+          API_ENDPOINTS.COMMUNITIES + `?page=1&limit=50${type}${search}`,
+          { headers }
+        );
+
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          const formattedCommunities = (data.data.communities || []).map((comm: any) => ({
+            id: comm._id || comm.id,
+            name: comm.name,
+            description: comm.description,
+            type: comm.type,
+            members: comm.memberCount || comm.members || 0,
+            posts: comm.postCount || comm.posts || 0,
+            isJoined: comm.isJoined || false,
+            tags: comm.tags || [],
+            trending: comm.trending,
+            featured: comm.featured
+          }));
+          
+          setCommunities(formattedCommunities);
+          setFilteredCommunities(formattedCommunities);
+        }
+      } catch (err) {
+        console.error('Error fetching communities:', err);
+      }
+    };
+    fetchCommunities();
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -202,7 +224,13 @@ const CommunitiesPage = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">Discover Communities</h1>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-4xl font-bold">Discover Communities</h1>
+            <Button onClick={() => setShowCreateModal(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Create Community
+            </Button>
+          </div>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Find and join communities based on your location, skills, and interests. 
             Connect with like-minded professionals and grow your network.
@@ -440,6 +468,12 @@ const CommunitiesPage = () => {
           )}
         </div>
       </div>
+      
+      <CreateCommunityModal 
+        open={showCreateModal} 
+        onOpenChange={setShowCreateModal}
+        onSuccess={handleCommunityCreated}
+      />
       
       <Footer />
     </div>
