@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -145,8 +146,27 @@ const mockJobs = [
 
 
 
+interface Job {
+  id: string | number;
+  title: string;
+  company: string;
+  location: string;
+  city: string;
+  state?: string;
+  type?: string;
+  workMode?: string;
+  salary?: { min: number; max: number; currency: string; period: string };
+  skills: string[];
+  description?: string;
+  source?: string;
+  postedAt?: string;
+  openings?: number;
+  experience?: string;
+  category?: string;
+}
+
 const Jobs = () => {
-  const [jobs, setJobs] = useState(mockJobs); // Initialize with mockJobs for now
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -155,14 +175,64 @@ const Jobs = () => {
   const [selectedWorkMode, setSelectedWorkMode] = useState<string>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
-  const [bookmarkedJobs, setBookmarkedJobs] = useState<number[]>([]);
+  const [bookmarkedJobs, setBookmarkedJobs] = useState<(string | number)[]>([]);
   const [sortBy, setSortBy] = useState<string>("recent");
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('https://coder-writes2.app.n8n.cloud/webhook/338b2e3d-d8c5-4d4e-9abe-b77facd3901d');
+        const data = Array.isArray(response.data) ? response.data : [response.data];
+        // Map the API response to match our job structure
+        const mappedJobs: Job[] = data.map((job: Record<string, unknown>, index: number) => {
+          const id = (job._id as string) || (job.id as string) || index + 1;
+          const location = (job.location as string) || 'Location Not Specified';
+          const city = (job.city as string) || (typeof location === 'string' ? location.split(',')[0] : 'Unknown City');
+          const state = (job.state as string) || (typeof location === 'string' ? location.split(',')[1]?.trim() : '') || '';
+          const salary = (job.salary as { min: number; max: number; currency: string; period: string; }) || { min: 0, max: 0, currency: "INR", period: "Year" };
+          const skills = (job.skills as string[]) || (job.requiredSkills as string[]) || [];
+
+          return {
+            id,
+            title: (job.title as string) || (job.jobTitle as string) || 'Untitled Position',
+            company: (job.company as string) || (job.companyName as string) || 'Company Name',
+            location,
+            city,
+            state,
+            type: (job.type as string) || (job.employmentType as string) || 'Full-time',
+            workMode: (job.workMode as string) || (job.remoteType as string) || 'On-site',
+            salary,
+            skills,
+            description: (job.description as string) || (job.jobDescription as string) || '',
+            source: (job.source as string) || 'recruiter',
+            postedAt: (job.postedAt as string) || (job.createdAt as string) || 'Recently',
+            openings: (job.openings as number) || (job.vacancies as number) || 1,
+            experience: (job.experience as string) || (job.experienceRequired as string) || 'Not specified',
+            category: (job.category as string) || (job.industry as string) || 'Other'
+          } as Job;
+        });
+
+        setJobs(mappedJobs);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching jobs:', err);
+        setError('Failed to load jobs. Please try again later.');
+        // Fallback to mock data on error
+        setJobs(mockJobs);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobs();
+  }, []);
 
   const allSkills = Array.from(new Set(jobs.flatMap(job => job.skills)));
   const allCities = Array.from(new Set(jobs.map(job => job.city))).sort();
   const allCategories = Array.from(new Set(jobs.map(job => job.category))).sort();
 
-  const toggleBookmark = (jobId: number) => {
+  const toggleBookmark = (jobId: string | number) => {
     setBookmarkedJobs(prev =>
       prev.includes(jobId) ? prev.filter(id => id !== jobId) : [...prev, jobId]
     );
