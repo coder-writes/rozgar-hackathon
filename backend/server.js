@@ -11,6 +11,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import communitiesRoutes from './routes/communities.js';
 import feedRoutes from './routes/feed.js';
 import applicationsRoutes from './routes/applications.js';
+import recruiterRoutes from './routes/recruiter.js';
 
 // Load environment variables
 // dotenv.config();
@@ -49,6 +50,7 @@ app.get('/', (req, res) => {
       communities: '/api/communities',
       feed: '/api/feed',
       applications: '/api/applications',
+      recruiter: '/api/recruiter',
     },
   });
 });
@@ -58,6 +60,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/communities', communitiesRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/applications', applicationsRoutes);
+app.use('/api/recruiter', recruiterRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
