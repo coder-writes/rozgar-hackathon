@@ -155,7 +155,7 @@ userSchema.statics.findByLocation = function (location) {
 
 // Virtual field for skills count
 userSchema.virtual('skillsCount').get(function () {
-  return this.skills.length;
+  return this.skills && Array.isArray(this.skills) ? this.skills.length : 0;
 });
 
 // Ensure virtuals are included in JSON output

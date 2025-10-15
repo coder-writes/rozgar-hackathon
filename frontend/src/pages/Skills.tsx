@@ -17,7 +17,7 @@ const Skills = () => {
     const fetchCourses = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('rozgar_token');
         const headers = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`

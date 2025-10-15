@@ -53,7 +53,7 @@ const CommunitiesPage = () => {
         setLoading(true);
         setError(null);
 
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('rozgar_token');
         const headers = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -100,7 +100,7 @@ const CommunitiesPage = () => {
 
   const handleJoinCommunity = async (communityId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('rozgar_token');
       const headers = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
@@ -177,7 +177,7 @@ const CommunitiesPage = () => {
     // Refresh communities list
     const fetchCommunities = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('rozgar_token');
         const headers = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`

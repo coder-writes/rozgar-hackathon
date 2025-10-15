@@ -85,7 +85,7 @@ const Dashboard = () => {
         setLoading(true);
         setError(null);
 
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('rozgar_token');
         const headers = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`

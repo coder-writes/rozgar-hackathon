@@ -104,12 +104,18 @@ communitySchema.virtual('totalMembers').get(function() {
 
 // Virtual for checking if user is member
 communitySchema.methods.isMember = function(userId) {
-  return this.members.some(member => member.user.toString() === userId.toString());
+  if (!userId || !this.members || !Array.isArray(this.members)) return false;
+  return this.members.some(member => 
+    member && member.user && member.user.toString() === userId.toString()
+  );
 };
 
 // Virtual for checking if user is admin
 communitySchema.methods.isAdmin = function(userId) {
-  return this.admins.some(admin => admin.toString() === userId.toString());
+  if (!userId || !this.admins || !Array.isArray(this.admins)) return false;
+  return this.admins.some(admin => 
+    admin && admin.toString() === userId.toString()
+  );
 };
 
 const Community = mongoose.model('Community', communitySchema);

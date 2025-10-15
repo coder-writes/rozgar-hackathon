@@ -65,7 +65,7 @@ export function CreatePostModal({
     setIsSubmitting(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("rozgar_token");
       if (!token) {
         setError("You must be logged in to create a post");
         setIsSubmitting(false);

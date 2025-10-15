@@ -21,13 +21,8 @@ router.delete('/profile', authMiddleware, isRecruiter, deleteRecruiterProfile);
 router.get('/', getAllRecruiters);
 router.get('/:id', getRecruiterById);
 
-export default router;import express from 'express';
-import authMiddleware from '../middleware/userAuth.js';
-
-const router = express.Router();
-
-// Mock data - replace with actual database queries
-router.get('/jobs', authMiddleware, async (req, res) => {
+// Job routes - Mock data - replace with actual database queries
+router.get('/jobs', authMiddleware, isRecruiter, async (req, res) => {
   try {
     // TODO: Fetch jobs posted by the recruiter from the database
     // For now, returning mock data
@@ -61,7 +56,7 @@ router.get('/jobs', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/jobs', authMiddleware, async (req, res) => {
+router.post('/jobs', authMiddleware, isRecruiter, async (req, res) => {
   try {
     const { title, company, location, type, salary, description, requirements } = req.body;
 
@@ -103,7 +98,7 @@ router.post('/jobs', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/jobs/:id', authMiddleware, async (req, res) => {
+router.get('/jobs/:id', authMiddleware, isRecruiter, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -136,7 +131,7 @@ router.get('/jobs/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/jobs/:id/applicants', authMiddleware, async (req, res) => {
+router.get('/jobs/:id/applicants', authMiddleware, isRecruiter, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -191,7 +186,7 @@ router.get('/jobs/:id/applicants', authMiddleware, async (req, res) => {
   }
 });
 
-router.put('/jobs/:id', authMiddleware, async (req, res) => {
+router.put('/jobs/:id', authMiddleware, isRecruiter, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -217,7 +212,7 @@ router.put('/jobs/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/jobs/:id', authMiddleware, async (req, res) => {
+router.delete('/jobs/:id', authMiddleware, isRecruiter, async (req, res) => {
   try {
     const { id } = req.params;
 

@@ -77,7 +77,7 @@ export function CreateJobModal({
     setIsSubmitting(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("rozgar_token");
       if (!token) {
         setError("You must be logged in to post a job");
         setIsSubmitting(false);
