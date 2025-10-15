@@ -7,6 +7,10 @@ import authRouter from './routes/authRoutes.js';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import profileRoutes from './routes/profile.js';
+import dashboardRoutes from './routes/dashboard.js';
+import communitiesRoutes from './routes/communities.js';
+import feedRoutes from './routes/feed.js';
+import applicationsRoutes from './routes/applications.js';
 
 // Load environment variables
 // dotenv.config();
@@ -41,11 +45,19 @@ app.get('/', (req, res) => {
     endpoints: {
       auth: '/api/auth',
       profile: '/api/profile',
+      dashboard: '/api/dashboard',
+      communities: '/api/communities',
+      feed: '/api/feed',
+      applications: '/api/applications',
     },
   });
 });
 app.use('/api/auth', authRouter);
 app.use('/api/profile', profileRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/communities', communitiesRoutes);
+app.use('/api/feed', feedRoutes);
+app.use('/api/applications', applicationsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

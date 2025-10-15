@@ -13,7 +13,7 @@ const userAuth = async (req, res, next) => {
         }
         
         // Set user ID in req.user (standard practice)
-        req.user = { id: decoded.id };
+        req.user = { id: decoded.id, userId: decoded.id };
         
         // Also set in req.body for backward compatibility
         if (!req.body) {
@@ -28,4 +28,6 @@ const userAuth = async (req, res, next) => {
     }
 };
 
+// Export both default and named export for flexibility
 export default userAuth;
+export { userAuth as authMiddleware };
