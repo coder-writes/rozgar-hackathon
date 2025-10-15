@@ -148,9 +148,43 @@ router.post('/', upload.single('resume'), async (req, res) => {
 // @route   GET /api/profile/:email
 // @desc    Get user profile by email
 // @access  Public
+// @route   GET /api/profile/user/:userId
+// @desc    Get user profile by ID (for recruiters viewing applicants)
+// @access  Public
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const user = await User.findOne({ 
+      _id: req.params.userId,
+      isActive: true 
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching user profile',
+      error: error.message,
+    });
+  }
+});
+
 router.get('/:email', async (req, res) => {
   try {
-    const user = await User.findOne({ email: req.params.email});
+    const user = await User.findOne({ 
+      email: req.params.email,
+      isActive: true 
+    });
 
     if (!user) {
       return res.status(404).json({

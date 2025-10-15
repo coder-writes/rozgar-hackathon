@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
   // Profile endpoints
   PROFILE: `${API_BASE_URL}/api/profile`,
   PROFILE_BY_EMAIL: (email: string) => `${API_BASE_URL}/api/profile/${email}`,
+  PROFILE_BY_ID: (userId: string) => `${API_BASE_URL}/api/profile/user/${userId}`,
   PROFILE_RESUME: (email: string) => `${API_BASE_URL}/api/profile/resume/${email}`,
   
   // Dashboard endpoints
@@ -38,6 +39,7 @@ export const API_ENDPOINTS = {
   
   // Application endpoints
   APPLICATIONS: `${API_BASE_URL}/api/applications`,
+  APPLICATION_CREATE: `${API_BASE_URL}/api/applications`,
   APPLICATION_BY_ID: (id: string) => `${API_BASE_URL}/api/applications/${id}`,
   APPLICATION_STATUS: (id: string) => `${API_BASE_URL}/api/applications/${id}/status`,
   APPLICATION_INTERVIEWS: (id: string) => `${API_BASE_URL}/api/applications/${id}/interviews`,

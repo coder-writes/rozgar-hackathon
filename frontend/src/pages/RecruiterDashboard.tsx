@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/api";
 import { CreateJobModal } from "@/components/CreateJobModal";
+import { ApplicantProfileModal } from "@/components/ApplicantProfileModal";
 
 interface Job {
   _id: string;
@@ -61,6 +62,8 @@ const RecruiterDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateJobModal, setShowCreateJobModal] = useState(false);
+  const [showApplicantProfile, setShowApplicantProfile] = useState(false);
+  const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRecruiterData();
@@ -315,7 +318,15 @@ const RecruiterDashboard = () => {
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div>
-                        <CardTitle className="text-lg">{applicant.user.name}</CardTitle>
+                        <CardTitle 
+                          className="text-lg cursor-pointer hover:text-blue-600 transition-colors"
+                          onClick={() => {
+                            setSelectedApplicantId(applicant.user._id);
+                            setShowApplicantProfile(true);
+                          }}
+                        >
+                          {applicant.user.name}
+                        </CardTitle>
                         <p className="text-sm text-muted-foreground">{applicant.user.email}</p>
                         {applicant.user.profile?.headline && (
                           <p className="text-sm mt-1">{applicant.user.profile.headline}</p>
@@ -336,11 +347,23 @@ const RecruiterDashboard = () => {
                         <span className="text-sm text-muted-foreground">
                           Applied {formatDate(applicant.appliedAt)}
                         </span>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedApplicantId(applicant.user._id);
+                            setShowApplicantProfile(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
                           View Profile
                         </Button>
                         {applicant.resume && (
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => window.open(applicant.resume, '_blank')}
+                          >
                             View Resume
                           </Button>
                         )}
@@ -361,6 +384,12 @@ const RecruiterDashboard = () => {
         open={showCreateJobModal}
         onOpenChange={setShowCreateJobModal}
         onSuccess={handleJobCreated}
+      />
+      
+      <ApplicantProfileModal
+        open={showApplicantProfile}
+        onOpenChange={setShowApplicantProfile}
+        applicantId={selectedApplicantId}
       />
       
       <Footer />
